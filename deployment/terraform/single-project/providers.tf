@@ -29,6 +29,6 @@ terraform {
 provider "google" {
   alias                 = "billing_override"
   billing_project       = var.project_id
-  region = var.region
+  region                = var.region
   user_project_override = true
 }

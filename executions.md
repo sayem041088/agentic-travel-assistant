@@ -96,3 +96,63 @@ To run automated, systematic testing using the LLM-as-a-Judge methodology:
 2.  **What this does**:
     *   **Phase 1 (Inference)**: The agent runs inference over the test cases defined in `basic-dataset.json`. A dynamic test swapper active in `app/agent.py` automatically replaces the stdio connection with mock callables to satisfy the Evals SDK. Traces are outputted to `artifacts/traces/`.
     *   **Phase 2 (Grading)**: The SDK loads a judge LLM to rate the generated responses against your target rubric, exporting grading summaries to terminal tables and a gorgeous, shareable HTML report in `artifacts/grade_results/`.
+
+---
+
+## 🐳 Step 6: Packaging & Running via Docker
+
+The entire Multi-Agent system (FastAPI application, static assets, and the custom search MCP server) is 100% containerized.
+
+### 1. Build the Docker Image
+```bash
+docker build -t travel-agent:latest .
+```
+
+### 2. Run the Container Locally
+Launch the container, mapping host port `8080` (where the UI and API will run) and injecting your Google Cloud credentials so Gemini Flash can run:
+```bash
+docker run -p 8080:8080 \
+  -e GOOGLE_APPLICATION_CREDENTIALS=/app/keys/credentials.json \
+  -v ~/.config/gcloud:/root/.config/gcloud:ro \
+  travel-agent:latest
+```
+*Now open your browser and navigate to **[http://localhost:8080](http://localhost:8080)** to interact with your agent!*
+
+---
+
+## 🛠️ Step 7: Provisioning GCP Infrastructure with Terraform
+
+We use Terraform to automatically spin up a secure, production-ready environment in Google Cloud.
+
+### 1. Navigate to the Terraform Workspace
+```bash
+cd deployment/terraform/single-project
+```
+
+### 2. Create your Environment Variables File
+Create a `terraform.tfvars` (or edit `vars/env.tfvars`) containing your Google Cloud project and preferred region:
+```hcl
+project_id   = "YOUR_GCP_PROJECT_ID"
+region       = "us-east1"
+project_name = "travel-nearby"
+```
+
+### 3. Initialize & Deploy
+Run the standard Terraform lifecycle commands:
+```bash
+# Initialize providers (HashiCorp Google and Google-Beta)
+terraform init
+
+# Plan and preview the cloud resources to be created
+terraform plan -var-file="vars/env.tfvars"
+
+# Apply and provision the secure infrastructure in your GCP account
+terraform apply -var-file="vars/env.tfvars" -auto-approve
+```
+
+### 4. Verification
+After the deployment completes successfully, Terraform will output the public URL of your Cloud Run service and the external IP address of your Load Balancer protected by Cloud Armor!
+```bash
+# View deployment outputs
+terraform output
+```

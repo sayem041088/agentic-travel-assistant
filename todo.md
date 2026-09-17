@@ -27,73 +27,58 @@ graph LR
 
 ---
 
-## 🚀 Step-by-Step Production Deployment Guide
+## 🚀 Implemented Production Infrastructure & Deployment Guide
 
-### 📦 Phase 1: Containerizing the Application
-1.  Create a production-ready `Dockerfile` in your project root:
-    ```dockerfile
-    FROM python:3.11-slim
+This repository contains **100% production-ready, fully implemented** assets for both application containerization and GCP infrastructure provisioning.
+
+### 📦 1. Implemented Docker Containerization (`Dockerfile`)
+A standardized, optimized `Dockerfile` is provided in the root of the project. It uses a secure, slim base image (`python:3.12-slim`) and leverages the advanced **Astral uv package manager** for deterministic, fast dependency synchronization.
+*   **Source File**: [Dockerfile](file:///home/sayem/temp-mcp-agent/Dockerfile)
+*   **Key Highlights**:
+    *   Exposes Port `8080` for web and API traffic.
+    *   Copies and syncs the FastAPI app and the custom search MCP server.
+    *   Runs the production server cleanly using `uv run uvicorn`.
+
+### 🛠️ 2. Implemented Infrastructure-as-Code (`deployment/terraform`)
+The entire GCP resource topology is codified inside the [deployment/terraform/single-project](file:///home/sayem/temp-mcp-agent/deployment/terraform/single-project) directory.
+
+Running `terraform apply` provisions a highly resilient, enterprise-grade architecture:
+
+```mermaid
+graph TD
+    Client([User Browser]) -->|HTTP Port 80| Rule[Global Forwarding Rule]
+    Rule --> Proxy[Target HTTP Proxy]
+    Proxy --> Map[Compute URL Map]
+    Map --> Backend[Global Backend Service]
     
-    # Install dependencies
-    WORKDIR /app
-    RUN pip install uv
-    COPY pyproject.toml uv.lock ./
-    RUN uv pip install --system --no-cache-dir -r pyproject.toml
+    %% Security & WAF
+    Backend -.->|Protected By| Armor[Cloud Armor Security Policy]
     
-    # Copy project files
-    COPY . .
+    %% Ingress to Serverless
+    Backend -->|Routes Traffic| NEG[Serverless Network Endpoint Group]
+    NEG -->|Forwards to| Run[Cloud Run v2 Service]
     
-    # Expose Fast-API app port (standard is 8080)
-    EXPOSE 8080
-    CMD ["uv", "run", "fastapi", "run", "app/fast_api_app.py", "--port", "8080"]
-    ```
+    %% Compute Service Integration
+    Run -->|Telemetry Event Streaming| GCS[GCS Logging Bucket]
+    Run -->|Permissions| SA[App Service Account]
+```
 
-### 🚢 Phase 2: Deploying to Google Cloud Run
-1.  Build and push your container image using **Google Cloud Build** or **Artifact Registry**:
-    ```bash
-    gcloud builds submit --tag gcr.io/YOUR_PROJECT_ID/travel-agent:latest
-    ```
-2.  Deploy the service to **Google Cloud Run**:
-    *   **Route A (Fully Public Website)**:
-        ```bash
-        gcloud run deploy temp-mcp-agent \
-            --image gcr.io/YOUR_PROJECT_ID/travel-agent:latest \
-            --region us-east1 \
-            --allow-unauthenticated
-        ```
-    *   **Route B (Secure Enterprise Sandbox behind Load Balancer)**:
-        ```bash
-        gcloud run deploy temp-mcp-agent \
-            --image gcr.io/YOUR_PROJECT_ID/travel-agent:latest \
-            --region us-east1 \
-            --no-allow-unauthenticated
-        ```
-
-### 🌐 Phase 3: Setting Up Global Load Balancing & Custom Domains
-To map a free custom domain (e.g., DuckDNS) to your application with free, Google-managed SSL certificate protection:
-
-1.  Create a **Serverless Network Endpoint Group (NEG)** targeting your Cloud Run service:
-    ```bash
-    gcloud compute network-endpoint-groups create travel-neg \
-        --region=us-east1 \
-        --network-endpoint-type=SERVERLESS \
-        --cloud-run-service=temp-mcp-agent
-    ```
-2.  Create a global **Compute Backend Service** and add the NEG:
-    ```bash
-    gcloud compute backend-services create travel-backend --global
-    gcloud compute backend-services add-backend travel-backend \
-        --global \
-        --network-endpoint-group=travel-neg \
-        --network-endpoint-group-region=us-east1
-    ```
-3.  Set up an **SSL Certificate** for your custom domain:
-    ```bash
-    gcloud compute ssl-certificates create travel-duck-cert \
-        --domains=travel-nearby.duckdns.org --global
-    ```
-4.  Configure your **URL Map**, **Target HTTPS Proxy**, and **Global Forwarding Rule** to route incoming load balancer traffic.
-5.  Point your **DuckDNS sub-domain** to the public external IP of the global forwarding rule. The SSL certificate will transition from `PROVISIONING` to `ACTIVE` automatically!
+#### 🏗️ Codified GCP Resource Mapping
+1.  **GCP API Activations (`apis.tf`)**: Enables Compute Engine, Cloud Run, Vertex AI, BigQuery, IAM, and Resource Manager services programmatically.
+2.  **Least-Privilege Security (`iam.tf`)**: Creates a dedicated application service account (`app-sa`) and binds strict, minimal IAM roles (Vertex AI User, GCS Admin, Cloud Trace Agent, Logging Writer).
+3.  **Horizontal Scale Compute (`service.tf`)**: Provisions a **Google Cloud Run v2 service** executing your container, configured with:
+    *   Auto-scaling ranges (1 to 10 instances).
+    *   Secure environment variable bindings.
+    *   Stateful **Session Affinity** enabled to optimize browser-to-backend request flows.
+    *   `ignore_changes` lifecycle hook on the container image tag to prevent Terraform from accidentally downgrading live CI/CD deployments.
+4.  **Telemetry Storage (`storage.tf` & `telemetry.tf`)**: Provisions a secure, locked-down Cloud Storage bucket to act as an immediate queue/ingestion point for telemetry logs.
+5.  **OWASP Top 10 Defenses (`load_balancer.tf`)**: Configures **Google Cloud Armor** with three robust, preconfigured filtering rules to immediately block SQL Injection (SQLi), Cross-Site Scripting (XSS), Remote Code Execution (RCE), and Local File Inclusion (LFI) attempts.
+6.  **Edge Ingress Routing (`load_balancer.tf`)**: Provisions:
+    *   A **Global Static IP Address** allocation.
+    *   A **Serverless Network Endpoint Group (NEG)** targeting the Cloud Run application.
+    *   An **External Managed Backend Service** protected by your Cloud Armor policy.
+    *   A Global **Compute URL Map**, **Target HTTP Proxy**, and **Global Forwarding Rule** mapping incoming port 80 traffic to your serverless backend.
+    *   A commented, drop-in blueprint for mapping your **Custom Domain** (e.g., DuckDNS) over secure HTTPS (Port 443) using Google-Managed SSL Certificates.
 
 ---
 

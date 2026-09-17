@@ -21,3 +21,13 @@ output "logs_bucket_name" {
   description = "Logs storage bucket name"
   value       = google_storage_bucket.logs_data_bucket.name
 }
+
+output "load_balancer_ip_address" {
+  description = "Global Static IP address allocated for the Load Balancer"
+  value       = google_compute_global_address.lb_ip.address
+}
+
+output "load_balancer_url_map_name" {
+  description = "The name of the Compute URL Map used by the Load Balancer"
+  value       = google_compute_url_map.url_map.name
+}

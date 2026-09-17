@@ -69,6 +69,15 @@ graph TD
 *   To bypass the serialization limitations of the Vertex AI Evals SDK (which throws errors on complex `McpToolset` stdio objects), a custom environment detector was built in the app initialization.
 *   When executing evaluation runs, the application dynamically swaps out the stdio connection parameters for lightweight, mock python callables with matching JSON schemas, enabling seamless and robust local automated testing.
 
+### 5. Production Containerization & IaC (Terraform)
+*   **Dockerization**: Includes a lightweight, secure `Dockerfile` based on `python:3.12-slim` utilizing the `uv` toolchain for deterministic, high-speed dependency installations.
+*   **Terraform IaC**: A fully-fledged Terraform codebase (`deployment/terraform`) that provisions:
+    *   **Google Cloud Run Service** (with environment-variable binding, session affinity, auto-scaling up to 10 instances, and least-privilege service account limits).
+    *   **Cloud Armor Web Application Firewall (WAF)** policy containing preconfigured rules protecting against SQL Injection (SQLi), Cross-Site Scripting (XSS), Remote Code Execution (RCE), and Local File Inclusion (LFI).
+    *   **Serverless Network Endpoint Group (NEG)** targeting the Cloud Run application.
+    *   **Global External Managed HTTP(S) Load Balancer** with global static IP allocation, URL mapping, proxy definitions, and commented SSL certificate blocks for secure domain routing.
+    *   Required cloud infrastructure (Storage buckets, API activations, IAM bindings, and BigQuery telemetry sinks).
+
 ---
 
 ## 📊 Evaluation & Metrics Performance
@@ -117,7 +126,13 @@ Designed with extreme cost-efficiency in mind, utilizing modern, low-overhead se
 
 ## 🚀 Scalability & Cloud Blueprint
 
-When moving from local prototype to cloud production, the system scales smoothly:
+The application is completely ready for enterprise production and fully automated out-of-the-box:
 
-*   **Horizontal Scalability**: The agent is packaged as a lightweight Docker container and deployed to **Google Cloud Run**, autoscaling down to 0 instances when idle (saving costs) and scaling up instantly to handle traffic spikes.
-*   **Secure Infrastructure**: Protected by **Google Cloud Armor** (Web Application Firewall) to defend against OWASP Top 10 web vulnerabilities (XSS, SQLi, and LFI), and secured via **Identity-Aware Proxy (IAP)** to enforce corporate logins.
+*   **100% Containerized**: The provided `Dockerfile` packages the entire FastAPI application and custom web-search MCP server using a multi-stage-like fast `uv` installation process.
+*   **Infrastructure-as-Code (Terraform)**: Run `terraform apply` in `deployment/terraform/single-project` to automatically spin up:
+    *   **Cloud Run v2 Service** supporting fast horizontal scalability, autoscaling down to 0 instances when idle, and up to 10 instances on-demand.
+    *   **External Global HTTP(S) Load Balancer** with global static IP allocation and Serverless NEGs.
+    *   **Cloud Armor Web Application Firewall (WAF)** defending against cross-site scripting (XSS), SQL Injection (SQLi), and remote code execution exploits.
+    *   **GCS Storage Buckets, IAM policies, and BigQuery telemetry sinks** required for analytical tracking.
+
+*   *Learn More*: See [todo.md](file:///home/sayem/temp-mcp-agent/todo.md) for architectural guidelines, and [executions.md](file:///home/sayem/temp-mcp-agent/executions.md) for how to build and launch the Docker container.
